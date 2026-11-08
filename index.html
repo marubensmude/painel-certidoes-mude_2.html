@@ -15,8 +15,6 @@
 <meta name="apple-mobile-web-app-title" content="Certidões Mude">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<!-- EmailJS: envio do código de recuperação de senha (configurar chaves no objeto EMAILJS abaixo) -->
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
   :root {
     --gold: #C9A84C;
@@ -310,29 +308,8 @@
 
     <div id="recovery-view" style="display:none">
       <div class="login-title">Recuperar acesso</div>
-      <div class="login-sub" id="rec-sub">Informe o e-mail cadastrado para receber um código de verificação.</div>
-      <div id="rec-step1">
-        <div class="login-field">
-          <label>E-mail cadastrado</label>
-          <input type="email" id="rec-email" placeholder="voce@email.com" autocapitalize="none" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter')recSendCode()">
-        </div>
-        <button class="login-btn" onclick="recSendCode()">Enviar código</button>
-      </div>
-      <div id="rec-step2" style="display:none">
-        <div class="login-field">
-          <label>Código recebido por e-mail</label>
-          <input type="text" id="rec-code" inputmode="numeric" maxlength="6" placeholder="000000" autocapitalize="none" autocorrect="off" spellcheck="false">
-        </div>
-        <div class="login-field">
-          <label>Nova senha</label>
-          <div class="pw-wrap">
-            <input type="password" id="rec-newpass" placeholder="defina uma nova senha" autocapitalize="none" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter')recReset()">
-            <button type="button" class="pw-eye" onclick="togglePw('rec-newpass',this)" title="Mostrar senha">👁</button>
-          </div>
-        </div>
-        <button class="login-btn" onclick="recReset()">Redefinir e entrar</button>
-      </div>
-      <div class="login-error" id="rec-error"></div>
+      <div class="login-sub" style="margin-top:10px;line-height:1.6">Por segurança, a redefinição de senha é feita pelo administrador do painel.<br>Solicite uma nova senha a Mário Rubens.</div>
+      <a class="login-btn" style="display:block;text-align:center;text-decoration:none;margin-top:18px;line-height:normal" href="mailto:mario@mudeimobiliaria.com.br?subject=Painel%20de%20Certid%C3%B5es%20-%20nova%20senha">Solicitar por e-mail</a>
       <div class="login-link"><a href="#" onclick="showLoginView();return false;">← Voltar ao login</a></div>
     </div>
 
@@ -468,48 +445,43 @@
 
 <script>
 /* ════════════════ CONTROLE DE ACESSO ════════════════ */
-/* Para adicionar/alterar usuários, edite o objeto abaixo.
-   senha = senha de acesso · email = e-mail usado na recuperação ("Esqueci minha senha").
-   Substitua [PREENCHER] pelo e-mail real de cada pessoa para habilitar a recuperação dela. */
+/* Senhas protegidas: o arquivo guarda só a "impressão digital" (PBKDF2-SHA256) de cada senha, nunca a senha.
+   Para incluir um corretor ou trocar uma senha, gere a linha no arquivo "gerador-senha-certidoes.html"
+   (abra no seu computador, fora do GitHub) e cole aqui, substituindo a linha da pessoa. */
+const PBKDF2_ITER=210000;
 const USUARIOS={
- 'mario@mudeimobiliaria.com.br': { nome: 'Mario Rubens', email: 'mario@mudeimobiliaria.com.br', senha: '@mahmar5957@'},
-  'paulomaioque@mudeimobiliaria.com.br': { nome: 'Paulo Maioque', email: 'paulomaioque@mudeimobiliaria.com.br', senha: '@paulo2026@' },
-  'camila@mudeimobiliaria.com.br': { nome: 'Camila', email: 'camila@mudeimobiliaria.com.br', senha: '@camila2026@' },
-  'leoarari@gmail.com': { nome: 'Arari Leonardo', email: 'leoarari@gmail.com', senha: '@arari2026@' },
-  'marcus@mudeimobiliaria.com.br': { nome: 'Marcus Luiz', email: 'marcus@mudeimobiliaria.com.br', senha: '@marcus2026@' }
+  'mario@mudeimobiliaria.com.br': { nome: 'Mário Rubens', salt: '1f9e332a6c68f5a2da1b0ff28ec25bca', hash: '7e8409d4ec44912efdccef8434938f28a8eb38f64bdbff95950b5781cb1211b2' },
+  'paulomaioque@mudeimobiliaria.com.br': { nome: 'Paulo Maioque', salt: '3c9da821e5e9c322715c7f0ac12124f2', hash: '0bfe7134fb852a12a43bfa01da979e7e9729c7b2d903c366a541723c8bb672c2' },
+  'camila@mudeimobiliaria.com.br': { nome: 'Camila', salt: '6f52863809bf2548094fb7fe7fd9520e', hash: '5de49b9a2e6756a9881544e54e135a90ff4a1442e7e5c769131a91cc2c01135a' },
+  'leoarari@gmail.com': { nome: 'Arari Leonardo', salt: 'e13a99ebbcd0b4a5b03c3dad93bc501f', hash: '6d33c4872ef51531f3b83d1a24af049fe280dabf232df4c203094b85e0815760' },
+  'marcus@mudeimobiliaria.com.br': { nome: 'Marcus Luiz', salt: 'd5c00bb398d8e98960825d83918eb040', hash: 'f32c1f4f0804ff0c708d495ba597b171c5025c637f81a523f666ff869abec6da' },
 };
-/* ── EmailJS (envio do código de recuperação) ──
-   Crie uma conta gratuita em https://www.emailjs.com e preencha as 3 chaves abaixo.
-   No template do EmailJS, use as variáveis: {{to_email}}, {{user_name}}, {{code}}, {{login}}.
-   Enquanto estiver "[PREENCHER...]", a recuperação avisa que o envio não está configurado. */
-const EMAILJS = {
-  publicKey:  '[PREENCHER_PUBLIC_KEY]',
-  serviceId:  '[PREENCHER_SERVICE_ID]',
-  templateId: '[PREENCHER_TEMPLATE_ID]'
-};
-function emailjsReady(){ return !!(window.emailjs && EMAILJS.publicKey.indexOf('PREENCHER')===-1
-  && EMAILJS.serviceId.indexOf('PREENCHER')===-1 && EMAILJS.templateId.indexOf('PREENCHER')===-1); }
-function initEmailJS(){ try{ if(emailjsReady()) emailjs.init({publicKey:EMAILJS.publicKey}); }catch(e){} }
-
-/* senhas redefinidas pelo usuário ficam salvas neste aparelho (localStorage) */
-const PW_OVERRIDE_KEY='mude_cert_pw_overrides';
-function getOverrides(){ try{ return JSON.parse(localStorage.getItem(PW_OVERRIDE_KEY)||'{}'); }catch(e){ return {}; } }
-function setOverride(u,p){ const o=getOverrides(); o[u]=p; try{ localStorage.setItem(PW_OVERRIDE_KEY,JSON.stringify(o)); }catch(e){} }
-function currentPw(u){ const o=getOverrides(); return (o[u]!==undefined)?o[u]:(USUARIOS[u]&&USUARIOS[u].senha); }
+function hexToBuf(h){ const a=new Uint8Array(h.length/2); for(let i=0;i<a.length;i++) a[i]=parseInt(h.substr(i*2,2),16); return a; }
+async function hashSenha(pw,saltHex){
+  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:hexToBuf(saltHex),iterations:PBKDF2_ITER},key,256);
+  return Array.from(new Uint8Array(bits)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function senhaConfere(u,p){ const r=USUARIOS[u]; if(!r||!p) return false;
+  try{ return (await hashSenha(p,r.salt))===r.hash; }catch(e){ return false; } }
+/* limpa senhas antigas que o recurso de recuperação gravava no aparelho */
+try{ localStorage.removeItem('mude_cert_pw_overrides'); }catch(e){}
 
 const SESSION_KEY='mude_certidoes_user';
 const STATE_KEY='mude_cert_state_v2';
 const CLIENTS_KEY='mude_cert_clients_v2';
 const THEME_KEY='mude_cert_theme';
 
-function doLogin(){
+async function doLogin(){
   const u=(document.getElementById('login-user').value||'').trim().toLowerCase();
   const p=(document.getElementById('login-pass').value||'').trim();
-  if(USUARIOS[u] && currentPw(u)===p){
+  const err=document.getElementById('login-error'); err.textContent='Verificando…';
+  if(await senhaConfere(u,p)){
+    err.textContent='';
     try{ localStorage.setItem(SESSION_KEY,u);}catch(e){}
     startApp(u);
   } else {
-    document.getElementById('login-error').textContent='Usuário ou senha inválidos.';
+    err.textContent='E-mail ou senha inválidos.';
   }
 }
 function doLogout(){ try{localStorage.removeItem(SESSION_KEY);}catch(e){} location.reload(); }
@@ -521,54 +493,11 @@ function togglePw(id,btn){ const el=document.getElementById(id); if(!el) return;
   const show = el.type==='password'; el.type = show?'text':'password';
   btn.textContent = show?'🙈':'👁'; btn.title = show?'Ocultar senha':'Mostrar senha'; }
 
-/* ── recuperação de senha ── */
-let recState={user:null,email:null,code:null};
+/* ── esqueci minha senha: redefinição feita pelo administrador ── */
 function showRecovery(){ document.getElementById('login-view').style.display='none';
-  document.getElementById('recovery-view').style.display='block'; resetRec(); }
+  document.getElementById('recovery-view').style.display='block'; }
 function showLoginView(){ document.getElementById('recovery-view').style.display='none';
   document.getElementById('login-view').style.display='block'; document.getElementById('login-error').textContent=''; }
-function resetRec(){ recState={user:null,email:null,code:null};
-  document.getElementById('rec-step1').style.display='block';
-  document.getElementById('rec-step2').style.display='none';
-  document.getElementById('rec-sub').textContent='Informe o e-mail cadastrado para receber um código de verificação.';
-  ['rec-email','rec-code','rec-newpass'].forEach(i=>{const e=document.getElementById(i); if(e)e.value='';});
-  setRecErr(''); }
-function setRecErr(msg,muted){ const e=document.getElementById('rec-error');
-  e.style.color = muted?'var(--text-muted)':'var(--red)'; e.textContent=msg; }
-function findUserByEmail(email){ email=(email||'').trim().toLowerCase();
-  if(!email) return null;
-  for(const u in USUARIOS){ const e=(USUARIOS[u].email||'').trim().toLowerCase();
-    if(e && e.indexOf('preencher')===-1 && e===email) return u; }
-  return null; }
-function maskEmail(e){ const p=e.split('@'); return p[0].slice(0,2)+'***@'+p[1]; }
-function recSendCode(){
-  const u=findUserByEmail(document.getElementById('rec-email').value);
-  if(!u){ setRecErr('E-mail não encontrado no cadastro.'); return; }
-  if(!emailjsReady()){ setRecErr('O envio de e-mail ainda não foi configurado (EmailJS). Fale com o administrador.'); return; }
-  const code=''+Math.floor(100000+Math.random()*900000);
-  recState={user:u,email:USUARIOS[u].email,code};
-  setRecErr('Enviando código…',true);
-  emailjs.send(EMAILJS.serviceId, EMAILJS.templateId,
-    { to_email:USUARIOS[u].email, user_name:capitalize(u), code:code, login:u })
-   .then(()=>{ setRecErr('');
-      document.getElementById('rec-step1').style.display='none';
-      document.getElementById('rec-step2').style.display='block';
-      document.getElementById('rec-sub').textContent='Enviamos um código para '+maskEmail(USUARIOS[u].email)+'. Digite-o abaixo e defina a nova senha.';
-   })
-   .catch(()=>{ setRecErr('Não foi possível enviar o e-mail. Verifique a configuração do EmailJS.'); });
-}
-function recReset(){
-  const code=(document.getElementById('rec-code').value||'').trim();
-  const np=(document.getElementById('rec-newpass').value||'').trim();
-  if(!recState.code){ setRecErr('Solicite o código primeiro.'); return; }
-  if(code!==recState.code){ setRecErr('Código incorreto.'); return; }
-  if(np.length<4){ setRecErr('A nova senha deve ter ao menos 4 caracteres.'); return; }
-  setOverride(recState.user, np);
-  try{ localStorage.setItem(SESSION_KEY,recState.user);}catch(e){}
-  const user=recState.user; showLoginView();
-  startApp(user);
-  flash('Senha redefinida neste aparelho. Acesso liberado.');
-}
 
 /* ════════════════ BIBLIOTECA DE CERTIDÕES ════════════════ */
 // sev: severidade quando "consta" — usada só nos cards de imóvel com menu detalhado.
@@ -753,7 +682,7 @@ function card(key){ if(!state.cards[key]) state.cards[key]={result:'',validade:'
 
 /* ════════════════ APP ════════════════ */
 function startApp(user){
-  corretor = capitalize(user);
+  corretor = (USUARIOS[user]&&USUARIOS[user].nome) || capitalize(user);
   document.getElementById('login-overlay').style.display='none';
   document.getElementById('user-name').textContent = corretor;
   // theme
@@ -1159,7 +1088,7 @@ function flash(msg){ const d=document.createElement('div'); d.textContent=msg;
   document.body.appendChild(d); setTimeout(()=>d.remove(),2200); }
 
 /* ════════════════ INIT ════════════════ */
-(function(){ initEmailJS(); const s=checkSession(); if(s&&USUARIOS[s]) startApp(s); })();
+(function(){ const s=checkSession(); if(s&&USUARIOS[s]) startApp(s); else if(s){ try{localStorage.removeItem(SESSION_KEY);}catch(e){} } })();
 </script>
 </body>
 </html>
